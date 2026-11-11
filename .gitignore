@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# pytest
+.pytest_cache/
+
+# 测试运行时产物（目录本身要提交，见 test/runtime/.gitkeep）
+test/runtime/*.db
+test/runtime/*.db-wal
+test/runtime/*.db-shm
+
+# 运行产物：SQLite 数据库（WAL/SHM 是 SQLite 的伴生文件）
+*.db
+*.db-wal
+*.db-shm
+
+# colcon / ament
+build/
+install/
+log/

@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mission_dispatcher</name>
+  <version>0.1.0</version>
+  <description>
+    ROS2 移动机器人任务级调度与失败恢复节点：读取 YAML 任务计划，逐步调用 Nav2
+    NavigateToPose，按失败类型决定重试或终止，并把进度持久化到 SQLite 以支持断点续跑。
+  </description>
+
+  <maintainer email="yichen@example.com">yichen</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 运行期依赖：rclpy 是 ROS2 Python 客户端库，其余是消息/服务/动作类型包 -->
+  <depend>rclpy</depend>
+  <depend>nav2_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>action_msgs</depend>
+
+  <!-- 解析 missions/*.yaml 用；Ubuntu 上由 python3-yaml 提供 -->
+  <exec_depend>python3-yaml</exec_depend>
+
+  <!-- 核心逻辑（models.py / store.py）是纯 Python，测试不需要 ROS 环境 -->
+  <test_depend>pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

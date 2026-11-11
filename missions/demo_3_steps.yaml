@@ -1,0 +1,39 @@
+# demo_3_steps.yaml —— 三步示例任务
+#
+# 坐标系：
+#   frame_id: map 表示下面所有 x/y/yaw 都在 Nav2 的 map 坐标系里，
+#   x/y 单位是米，yaw 单位是弧度（绕 z 轴，0 表示朝 +x 方向）。
+#   这个 map 由 nav2_bringup 的 tb3_simulation_launch.py 加载的静态地图提供；
+#   如果换地图或换世界，下面的坐标必须在 RViz 里重新确认，否则 goal 可能
+#   落在墙里，Nav2 会拒绝或 abort。
+#
+# 步骤语义：
+#   NAVIGATE 用 x/y/yaw，忽略 seconds；
+#   WAIT 用 seconds，忽略 x/y/yaw，用来模拟“在目标点做一件事”（拍照、机械臂动作等）。
+#
+# 提示：demo 坐标是给默认 TurtleBot3 世界准备的，先用 RViz 的 “2D Goal Pose”
+# 点一下目标位置，看机器人能不能到，再把确认过的坐标填回来。
+
+name: demo_3_steps
+frame_id: map
+
+steps:
+  # 第 0 步：从出生点导航到地图中间的 A 点
+  - type: NAVIGATE
+    label: "去 A 点（地图中间的空旷区域）"
+    x: 0.5
+    y: 0.0
+    yaw: 0.0
+
+  # 第 1 步：停在 A 点 2 秒，模拟“到点后做一件事”
+  # 这个步骤不调用 Nav2，适合用来做“kill 节点后续跑”的实验
+  - type: WAIT
+    label: "在 A 点停留 2 秒（模拟执行一次本地动作）"
+    seconds: 2.0
+
+  # 第 2 步：回到出生点附近的 B 点，yaw=3.14 表示掉头朝 -x 方向
+  - type: NAVIGATE
+    label: "回到 B 点（出生点附近）"
+    x: -1.0
+    y: -0.5
+    yaw: 3.14
