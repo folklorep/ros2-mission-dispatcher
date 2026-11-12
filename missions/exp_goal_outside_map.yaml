@@ -1,0 +1,13 @@
+# exp_goal_outside_map.yaml —— 实验②：目标点在地图外
+#
+# 目的：观察 Nav2 对"不可能到达的目标"到底返回哪一类结果，
+# 从而验证调度节点的失败分类逻辑（REJECTED 不重试 / ABORTED 退避重试）。
+name: exp_goal_outside_map
+frame_id: map
+
+steps:
+  - type: NAVIGATE
+    label: "目标点在地图外（应该失败）"
+    x: 10.0
+    y: 10.0
+    yaw: 0.0

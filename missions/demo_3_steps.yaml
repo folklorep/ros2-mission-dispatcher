@@ -18,11 +18,13 @@ name: demo_3_steps
 frame_id: map
 
 steps:
-  # 第 0 步：从出生点导航到地图中间的 A 点
+  # 第 0 步：从出生点 (-2.0, -0.5) 沿走廊走到 A 点
+  # 这两个坐标是在实测里确认可通行的，不要一上来就放到地图另一头，
+  # 那会穿过障碍区，controller_server 报 "Failed to make progress" 然后 abort
   - type: NAVIGATE
-    label: "去 A 点（地图中间的空旷区域）"
-    x: 0.5
-    y: 0.0
+    label: "去 A 点（出生点东侧 1 米）"
+    x: -1.0
+    y: -0.5
     yaw: 0.0
 
   # 第 1 步：停在 A 点 2 秒，模拟“到点后做一件事”
@@ -31,9 +33,9 @@ steps:
     label: "在 A 点停留 2 秒（模拟执行一次本地动作）"
     seconds: 2.0
 
-  # 第 2 步：回到出生点附近的 B 点，yaw=3.14 表示掉头朝 -x 方向
+  # 第 2 步：掉头回到出生点，yaw=3.14 表示朝 -x 方向
   - type: NAVIGATE
-    label: "回到 B 点（出生点附近）"
-    x: -1.0
+    label: "回到出生点"
+    x: -2.0
     y: -0.5
     yaw: 3.14

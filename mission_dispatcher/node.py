@@ -111,6 +111,19 @@ def load_mission_plan(path: str) -> tuple[str, str, list[Step]]:
     return name, frame_id, steps
 
 
+# Nav2 在 NavigateToPose 的 result 里回传 error_code，取值来自 ComputePathToPose 的枚举。
+# 下面这些不是瞬时故障：目标/起点在地图外、在障碍里、规划器配置错——
+# 重试同一个目标必然再失败，所以归入「不可重试」，别把重试预算浪费在必然失败的目标上。
+# 反过来 TF_ERROR(202) / TIMEOUT(207) / NO_VALID_PATH(208) 可能是瞬时的，保留重试。
+NON_RETRYABLE_NAV_ERRORS = {
+    201: "INVALID_PLANNER",
+    203: "START_OUTSIDE_MAP",
+    204: "GOAL_OUTSIDE_MAP",
+    205: "START_OCCUPIED",
+    206: "GOAL_OCCUPIED",
+}
+
+
 def _map_goal_status(status_code: int) -> StepOutcome:
     """把 Nav2 goal 的终态映射成领域结果。
 
@@ -616,11 +629,32 @@ class MissionDispatcher(Node):
             return StepOutcome.ABORTED
 
         outcome = _map_goal_status(result.status)
+
+        # Nav2 的 result 里还带了 error_code（取值来自 ComputePathToPose 的枚举）。
+        # 只看 GoalStatus 会漏信息：「目标点在地图外」和「执行中卡住」都返回 ABORTED，
+        # 但前者重试同一个目标永远不会成功，重试三次纯属浪费预算。
+        # 实测：目标点 (10,10) 在地图外时，GoalStatus=6、error_code=204（GOAL_OUTSIDE_MAP）。
+        error_code = None
+        error_msg = ""
+        inner = getattr(result, "result", None)
+        if inner is not None:
+            error_code = getattr(inner, "error_code", None)
+            error_msg = getattr(inner, "error_msg", "") or ""
+
+        if outcome is StepOutcome.ABORTED and error_code in NON_RETRYABLE_NAV_ERRORS:
+            self.get_logger().warning(
+                f"步骤 {step.index} 的 Nav2 error_code={error_code}"
+                f"（{NON_RETRYABLE_NAV_ERRORS[error_code]}）不是瞬时故障，"
+                f"重试同一个目标必然再失败，直接判失败"
+            )
+            outcome = StepOutcome.REJECTED
+
         if outcome is StepOutcome.SUCCEEDED:
             self.get_logger().info(f"步骤 {step.index} 导航成功")
         else:
             self.get_logger().warning(
-                f"步骤 {step.index} 导航结束，GoalStatus={result.status} -> {outcome.value}"
+                f"步骤 {step.index} 导航结束，GoalStatus={result.status} -> {outcome.value}，"
+                f"error_code={error_code}，error_msg={error_msg!r}"
             )
         return outcome
 
