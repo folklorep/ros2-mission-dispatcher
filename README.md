@@ -491,20 +491,103 @@ kill -9 <上一步看到的 PID>
 
 ---
 
-## 待填数字（实验后补）
+## 实测结果（2026-11-12，WSL2 + Ubuntu 24.04 + ROS2 Jazzy + Gazebo）
 
-| 指标 | 实验 | 数值 |
+一次完整跑通的三组数据。样本量都是 1 次，够用来验证链路，不够用来声称成功率——后面补跑再加。
+
+### 实验 ①：正常三步任务
+
+| 指标 | 数值 |
+|---|---|
+| 端到端耗时 | **11.0 秒**（导航 3.7s + 等待 2.0s + 导航 5.6s） |
+| 步数 | 3 / 3 `SUCCEEDED` |
+| 每步尝试次数 | 各 1 次 |
+| 最终状态 | `DONE` |
+
+```text
+步骤 0 导航成功                         ← 3.7s
+开始步骤 2/3: WAIT 2 秒
+开始步骤 3/3: NAVIGATE '回到出生点'
+步骤 2 导航成功                         ← 5.6s
+mission 1 结束: DONE（所有步骤执行成功）
+```
+
+### 实验 ②：目标点在地图外（10, 10）
+
+这一组跑出了本项目的核心发现，**同一个场景在改进前后差了 9 倍**：
+
+| | 改进前 | 改进后 |
 |---|---|---|
-| 三步任务端到端成功率 | ① | `X%`（建议至少跑 10 次） |
-| 单步导航平均耗时 | ① | `X` 秒 |
-| 三步任务平均总耗时 | ① | `X` 秒 |
-| ABORTED 场景最终成功率 | ② | `X%` |
-| 平均重试次数（每次 mission） | ② | `X` 次 |
-| 重试后仍失败的比例 | ② | `X%` |
-| 超时（TIMED_OUT）发生率 | ② | `X%` |
-| 断点续跑成功率 | ③ | `X%`（建议至少 10 次） |
-| 续跑后重复执行的步数 | ③ | `X` 步（预期 1 步） |
-| 续跑节省的时间 | ③ | `X` 秒 |
+| Nav2 返回 | `GoalStatus=6 (ABORTED)`, `error_code=204` | 同左 |
+| 分类结果 | `ABORTED` → **重试 3 次** | 识别 `GOAL_OUTSIDE_MAP` → `REJECTED` → **只试 1 次** |
+| 耗时 | **3.6 秒** | **0.4 秒** |
+| 数据库 | `attempts=3`, `FAILED` | `attempts=1`, `FAILED` |
+
+Nav2 侧的原始原因：
+
+```text
+[planner_server]: GridBased plugin failed to plan from (-2.00, -0.50) to (10.00, 10.00):
+                  "Goal Coordinates of(10.000000, 10.000000) was outside bounds"
+[bt_navigator]: [navigate_to_pose] [ActionServer] Aborting handle.
+```
+
+**为什么值得记一笔**：`NavigateToPose` 的 `GoalStatus` 只有 SUCCEEDED / ABORTED / CANCELED 三种终态，
+"目标在地图外"和"执行中卡住"返回的都是 `ABORTED(6)`。只按 GoalStatus 分类，就会对一个
+永远不可能成功的目标重试三次。真正能区分的是 `result.error_code`（取值来自
+`ComputePathToPose` 的枚举）：
+
+| error_code | 含义 | 策略 |
+|---|---|---|
+| 201 | INVALID_PLANNER | 不重试（配置错误） |
+| 203 | START_OUTSIDE_MAP | 不重试（定位坏了） |
+| 204 | GOAL_OUTSIDE_MAP | 不重试 |
+| 205 | START_OCCUPIED | 不重试（机器人被卡住/定位错） |
+| 206 | GOAL_OCCUPIED | 不重试 |
+| 202 | TF_ERROR | 重试（可能是瞬时） |
+| 207 | TIMEOUT | 重试 |
+| 208 | NO_VALID_PATH | 重试（动态障碍可能让开） |
+
+### 实验 ③：第 2 步中途 kill -9，再启动
+
+崩溃瞬间的数据库：
+
+```text
+mission: (1, 'exp_resume', 'RUNNING')
+  step (0, 'SUCCEEDED', 1)
+  step (1, 'RUNNING',   1)   ← 崩在这一步
+  step (2, 'PENDING',   0)
+```
+
+重启（`auto_resume:=true`）后：
+
+```text
+[WARN] 发现未完成 mission 1，已完成 1 步；将按「整步重做」策略从下一步的边界继续
+[INFO] 续跑 mission 1，从第 1 步继续（共 3 步）
+[INFO] 开始步骤 2/3: WAIT '第二步：停留 15 秒（kill 窗口）'
+[INFO] 开始步骤 3/3: NAVIGATE '回到出生点'
+mission 1 结束: DONE
+```
+
+| 指标 | 数值 |
+|---|---|
+| 续跑起点 | 第 1 步（不是从头，也不是从第 2 步） |
+| 重复执行的步数 | **1 步**（被中断的那一步整步重做） |
+| 最终状态 | `DONE`，三步全 `SUCCEEDED` |
+
+**"整步重做"不是偷懒**：被中断的 WAIT 从剩余 7 秒重新等满 15 秒。因为真实场景里那一步
+可能是机械臂抓取，动作不可回滚，只能整步重做——"至少执行一次"，不是"恰好一次"。
+
+### 三个必须先知道的坑（都踩过）
+
+1. **初始位姿必须早于 `global_costmap` 激活**。AMCL 收不到 `/initialpose` 就不发 `map→odom`，
+   `global_costmap` 等 TF 约 60 秒后超时 → `planner_server` 激活失败 → `bt_navigator` 保持
+   `inactive` → 所有 goal 被拒（`Action server is inactive. Rejecting the goal.`）。
+   正确做法：仿真起来后**立刻**发 `/initialpose`（`stamp` 用 0），再等 lifecycle 就绪。
+2. **必须保证单实例**。两套 `tb3_simulation_launch` 同时跑时，`ros2 node list` 会直接返回空、
+   `ros2 lifecycle get` 全部无响应——不是进程没了，是 ROS 图被同名节点污染了。
+   做实验前 `wsl --terminate Ubuntu-24.04` 最省事。
+3. **root 与普通用户混跑会撞 FastDDS 共享内存**：`Failed init_port fastrtps_port7000:
+   open_and_lock_file failed`。全程用同一个用户，并固定 `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`。
 
 ---
 

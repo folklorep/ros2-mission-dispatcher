@@ -1,0 +1,26 @@
+# exp_resume.yaml —— 实验③：中途崩溃后续跑
+#
+# 目的：任务跑到第 2 步（长时间 WAIT）时 kill -9 节点，再启动，
+# 验证调度节点能否从「已完成的连续前缀」之后继续，而不是从头再来。
+#
+# 为什么 WAIT 要 15 秒：给操作留出 kill 的时间窗；真实场景里这一步可能是
+# 原地等机械臂动作、等充电对接、等电梯，同样耗时。
+name: exp_resume
+frame_id: map
+
+steps:
+  - type: NAVIGATE
+    label: "第一步：去 A 点"
+    x: -1.0
+    y: -0.5
+    yaw: 0.0
+
+  - type: WAIT
+    label: "第二步：停留 15 秒（kill 窗口）"
+    seconds: 15.0
+
+  - type: NAVIGATE
+    label: "第三步：回出生点"
+    x: -2.0
+    y: -0.5
+    yaw: 3.14
