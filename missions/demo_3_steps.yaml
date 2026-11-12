@@ -22,8 +22,8 @@ steps:
   # 这两个坐标是在实测里确认可通行的，不要一上来就放到地图另一头，
   # 那会穿过障碍区，controller_server 报 "Failed to make progress" 然后 abort
   - type: NAVIGATE
-    label: "去 A 点（出生点东侧 1 米）"
-    x: -1.0
+    label: "去 A 点（场地对面，约 2 米）"
+    x: 0.0
     y: -0.5
     yaw: 0.0
 
