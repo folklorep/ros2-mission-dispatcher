@@ -629,3 +629,13 @@ mission 1 结束: DONE
 | 仿真时间/`use_sim_time` 警告 | 由 `tb3_simulation_launch.py` 统一设置，一般可忽略；不要手动混用系统时间和仿真时间 |
 
 ---
+
+## 开源贡献
+
+- **Nav2**（ROS2 官方导航栈）：[PR #6782](https://github.com/ros-navigation/navigation2/pull/6782)
+  —— 修正 `tb3_simulation_launch.py` 中 `headless` 参数的描述：去掉多余的右括号，
+  并说明「`headless` 默认为 `True`，即不启动 gzclient 界面，需要 `headless:=False` 才能看到仿真窗口」。
+  这个改动来自本项目的真实踩坑——按 README 启动却看不到 Gazebo，最后靠 `ps` 发现子进程是 `gz sim -r -s` 才定位到原因。
+  已带 DCO 签名（`Signed-off-by`），并通过可合并性检查。
+
+---
