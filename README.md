@@ -637,5 +637,3 @@ mission 1 结束: DONE
   并说明「`headless` 默认为 `True`，即不启动 gzclient 界面，需要 `headless:=False` 才能看到仿真窗口」。
   这个改动来自本项目的真实踩坑——按 README 启动却看不到 Gazebo，最后靠 `ps` 发现子进程是 `gz sim -r -s` 才定位到原因。
   已带 DCO 签名（`Signed-off-by`），并通过可合并性检查。
-
----
